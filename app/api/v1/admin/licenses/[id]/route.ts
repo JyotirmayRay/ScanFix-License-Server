@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { isAuthenticatedAdmin } from '@/lib/auth';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const updateSchema = z.object({
   status: z.enum(['active', 'suspended', 'revoked', 'expired']).optional(),
@@ -14,6 +18,10 @@ export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (!isAuthenticatedAdmin(req)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized: Admin authentication required.' }, { status: 401 });
+  }
+
   const { id } = await context.params;
   const license = db.getLicenseById(id);
   if (!license) {
@@ -26,6 +34,10 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (!isAuthenticatedAdmin(req)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized: Admin authentication required.' }, { status: 401 });
+  }
+
   try {
     const { id } = await context.params;
     const body = await req.json();
@@ -70,6 +82,10 @@ export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (!isAuthenticatedAdmin(req)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized: Admin authentication required.' }, { status: 401 });
+  }
+
   const { id } = await context.params;
   const success = db.deleteLicense(id);
   if (!success) {

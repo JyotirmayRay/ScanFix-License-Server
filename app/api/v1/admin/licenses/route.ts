@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, LicenseTier } from '@/lib/db';
 import { generateLicenseKey } from '@/lib/crypto';
+import { isAuthenticatedAdmin } from '@/lib/auth';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const createLicenseSchema = z.object({
   customerName: z.string().min(1),
@@ -15,11 +19,19 @@ const createLicenseSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
+  if (!isAuthenticatedAdmin(req)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized: Admin authentication required.' }, { status: 401 });
+  }
+
   const licenses = db.getLicenses();
   return NextResponse.json({ success: true, count: licenses.length, licenses });
 }
 
 export async function POST(req: NextRequest) {
+  if (!isAuthenticatedAdmin(req)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized: Admin authentication required.' }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const data = createLicenseSchema.parse(body);

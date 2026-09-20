@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Key,
   ShieldCheck,
@@ -20,10 +21,13 @@ import {
   CheckCircle2,
   Eye,
   Sliders,
+  LogOut,
 } from 'lucide-react';
 import type { License, Reseller, AuditLog } from '@/lib/db';
 
 export default function LicenseServerDashboard() {
+  const router = useRouter();
+  const [adminEmail, setAdminEmail] = useState('admin@scanfix.dev');
   const [activeTab, setActiveTab] = useState<'licenses' | 'resellers' | 'logs' | 'docs'>('licenses');
   const [licenses, setLicenses] = useState<License[]>([]);
   const [resellers, setResellers] = useState<Reseller[]>([]);
@@ -58,13 +62,23 @@ export default function LicenseServerDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [licRes, resRes, logRes, keyRes] = await Promise.all([
+      const [licRes, resRes, logRes, keyRes, meRes] = await Promise.all([
         fetch('/api/v1/admin/licenses'),
         fetch('/api/v1/admin/resellers'),
         fetch('/api/v1/admin/logs'),
         fetch('/api/v1/license/public-key'),
+        fetch('/api/v1/admin/me'),
       ]);
 
+      if (licRes.status === 401 || meRes.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (meRes.ok) {
+        const me = await meRes.json();
+        if (me.email) setAdminEmail(me.email);
+      }
       if (licRes.ok) {
         const d = await licRes.json();
         setLicenses(d.licenses || []);
@@ -86,6 +100,14 @@ export default function LicenseServerDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/v1/admin/logout', { method: 'POST' });
+    } catch {}
+    router.push('/login');
+    router.refresh();
   };
 
   useEffect(() => {
@@ -285,6 +307,17 @@ export default function LicenseServerDashboard() {
             >
               <Plus className="h-4 w-4" />
               <span>Issue License Key</span>
+            </button>
+
+            <div className="h-5 w-px bg-zinc-800 mx-1" />
+
+            <button
+              onClick={handleSignOut}
+              className="px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+              title={`Logged in as ${adminEmail}`}
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
