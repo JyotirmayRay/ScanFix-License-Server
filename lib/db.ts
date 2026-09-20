@@ -69,7 +69,6 @@ class Database {
 
   constructor() {
     this.load();
-    this.seedDefaultAdminAndLicenses();
   }
 
   private load() {
@@ -96,30 +95,6 @@ class Database {
       fs.writeFileSync(DB_PATH, JSON.stringify(this.data, null, 2), 'utf8');
     } catch (err) {
       console.error('[DB] Save error:', err);
-    }
-  }
-
-  private seedDefaultAdminAndLicenses() {
-    if (this.data.licenses.length === 0) {
-      // Seed a default master demo license
-      const initialKey = 'SF-PROD-2026-DEMO-ROOT';
-      this.data.licenses.push({
-        id: crypto.randomUUID(),
-        key: initialKey,
-        customerName: 'ScanFix Master Operator',
-        customerEmail: 'admin@scanfix.dev',
-        tier: 'agency',
-        status: 'active',
-        allowedDomains: ['*'], // Allow all domains for master demo
-        maxDomains: 10,
-        activatedDomains: [],
-        expiresAt: null, // Lifetime
-        resellerId: null,
-        notes: 'Initial master demo license created automatically on setup.',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      this.save();
     }
   }
 
