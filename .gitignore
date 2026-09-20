@@ -1,0 +1,7 @@
+node_modules
+.next
+.env.local
+.DS_Store
+data/keys/private.pem
+data/keys/public.pem
+data/db.json
