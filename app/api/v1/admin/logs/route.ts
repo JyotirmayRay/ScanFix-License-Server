@@ -10,6 +10,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Unauthorized: Admin authentication required.' }, { status: 401 });
   }
 
-  const logs = db.getRecentLogs(100);
+  const logs = await db.getRecentLogs(100);
   return NextResponse.json({ success: true, count: logs.length, logs });
 }

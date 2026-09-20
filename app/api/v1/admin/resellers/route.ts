@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Unauthorized: Admin authentication required.' }, { status: 401 });
   }
 
-  const resellers = db.getResellers();
+  const resellers = await db.getResellers();
   return NextResponse.json({ success: true, count: resellers.length, resellers });
 }
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, email, quotaLimit } = createResellerSchema.parse(body);
 
-    const reseller = db.createReseller(name, email, quotaLimit);
+    const reseller = await db.createReseller(name, email, quotaLimit);
     return NextResponse.json({ success: true, reseller }, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 400 });

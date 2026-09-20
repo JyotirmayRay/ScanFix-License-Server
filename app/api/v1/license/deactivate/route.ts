@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const { licenseKey, domain } = deactivateSchema.parse(body);
     const cleanDomain = domain.trim().toLowerCase().split(':')[0].replace(/^https?:\/\//, '');
 
-    const license = db.getLicenseByKey(licenseKey);
+    const license = await db.getLicenseByKey(licenseKey);
     if (!license) {
       return NextResponse.json({ success: false, error: 'License key not found' }, { status: 404 });
     }
@@ -21,9 +21,9 @@ export async function POST(req: NextRequest) {
     const initialCount = license.activatedDomains.length;
     license.activatedDomains = license.activatedDomains.filter((d) => d.domain !== cleanDomain);
 
-    db.updateLicense(license.id, { activatedDomains: license.activatedDomains });
+    await db.updateLicense(license.id, { activatedDomains: license.activatedDomains });
 
-    db.addLog({
+    await db.addLog({
       licenseKey,
       action: 'deactivate',
       domain: cleanDomain,
