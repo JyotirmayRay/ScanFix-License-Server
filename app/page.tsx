@@ -25,8 +25,11 @@ import {
 } from 'lucide-react';
 import type { License, Reseller, AuditLog } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export default function LicenseServerDashboard() {
   const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [adminEmail, setAdminEmail] = useState('admin@scanfix.dev');
   const [activeTab, setActiveTab] = useState<'licenses' | 'resellers' | 'logs' | 'docs'>('licenses');
   const [licenses, setLicenses] = useState<License[]>([]);
@@ -62,23 +65,19 @@ export default function LicenseServerDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [licRes, resRes, logRes, keyRes, meRes] = await Promise.all([
+      const [licRes, resRes, logRes, keyRes] = await Promise.all([
         fetch('/api/v1/admin/licenses'),
         fetch('/api/v1/admin/resellers'),
         fetch('/api/v1/admin/logs'),
         fetch('/api/v1/license/public-key'),
-        fetch('/api/v1/admin/me'),
       ]);
 
-      if (licRes.status === 401 || meRes.status === 401) {
-        router.push('/login');
+      if (licRes.status === 401) {
+        setIsAuthenticated(false);
+        router.replace('/login');
         return;
       }
 
-      if (meRes.ok) {
-        const me = await meRes.json();
-        if (me.email) setAdminEmail(me.email);
-      }
       if (licRes.ok) {
         const d = await licRes.json();
         setLicenses(d.licenses || []);
@@ -106,12 +105,36 @@ export default function LicenseServerDashboard() {
     try {
       await fetch('/api/v1/admin/logout', { method: 'POST' });
     } catch {}
-    router.push('/login');
+    router.replace('/login');
     router.refresh();
   };
 
   useEffect(() => {
-    fetchData();
+    const checkAuthAndLoad = async () => {
+      try {
+        const meRes = await fetch('/api/v1/admin/me');
+        if (!meRes.ok) {
+          setIsAuthenticated(false);
+          router.replace('/login');
+          return;
+        }
+        const me = await meRes.json();
+        if (!me.authenticated) {
+          setIsAuthenticated(false);
+          router.replace('/login');
+          return;
+        }
+
+        setIsAuthenticated(true);
+        if (me.email) setAdminEmail(me.email);
+        await fetchData();
+      } catch {
+        setIsAuthenticated(false);
+        router.replace('/login');
+      }
+    };
+
+    checkAuthAndLoad();
   }, []);
 
   const handleCopy = (text: string, id: string) => {
@@ -248,6 +271,21 @@ export default function LicenseServerDashboard() {
       l.status.toLowerCase().includes(q)
     );
   });
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-zinc-500 font-mono">Verifying operator credentials...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-grid p-6 md:p-10">
