@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Key,
+  Shield,
   ShieldCheck,
-  Server,
+  Key,
   Users,
   Activity,
   Plus,
@@ -22,6 +22,14 @@ import {
   Eye,
   Sliders,
   LogOut,
+  Search,
+  Filter,
+  ExternalLink,
+  ChevronDown,
+  Terminal,
+  Server,
+  Lock,
+  Zap,
 } from 'lucide-react';
 import type { License, Reseller, AuditLog } from '@/lib/db';
 
@@ -38,6 +46,8 @@ export default function LicenseServerDashboard() {
   const [publicKey, setPublicKey] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [tierFilter, setTierFilter] = useState<string>('all');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Modals
@@ -50,8 +60,8 @@ export default function LicenseServerDashboard() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [tier, setTier] = useState<'solo' | 'pro' | 'agency' | 'enterprise'>('agency');
   const [allowedDomains, setAllowedDomains] = useState('*');
-  const [maxDomains, setMaxDomains] = useState(1);
-  const [durationDays, setDurationDays] = useState<string>('365'); // 365, 30, or lifetime
+  const [maxDomains, setMaxDomains] = useState(5);
+  const [durationDays, setDurationDays] = useState<string>('365');
   const [selectedResellerId, setSelectedResellerId] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -263,21 +273,25 @@ export default function LicenseServerDashboard() {
 
   const filteredLicenses = licenses.filter((l) => {
     const q = search.toLowerCase();
-    return (
+    const matchesSearch =
+      !q ||
       l.key.toLowerCase().includes(q) ||
       l.customerEmail.toLowerCase().includes(q) ||
       l.customerName.toLowerCase().includes(q) ||
-      l.tier.toLowerCase().includes(q) ||
-      l.status.toLowerCase().includes(q)
-    );
+      l.tier.toLowerCase().includes(q);
+
+    const matchesStatus = statusFilter === 'all' || l.status === statusFilter;
+    const matchesTier = tierFilter === 'all' || l.tier === tierFilter;
+
+    return matchesSearch && matchesStatus && matchesTier;
   });
 
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
+      <div className="min-h-screen flex items-center justify-center bg-[#090a0f]">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-zinc-500 font-mono">Verifying operator credentials...</p>
+          <div className="h-7 w-7 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-zinc-400 font-mono tracking-wide">Authenticating operator session...</p>
         </div>
       </div>
     );
@@ -288,33 +302,29 @@ export default function LicenseServerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-grid p-6 md:p-10">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Top Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800/80 pb-6">
-          <div>
-            <div className="flex items-center gap-2.5 mb-2">
-              <div className="h-9 w-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2 font-mono">
-                  <span>ScanFix License Server</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-sans">
-                    Ed25519 Authority
-                  </span>
-                </h1>
-                <p className="text-xs text-zinc-400">
-                  Cryptographic license issuance, domain binding, remote kill-switch & reseller management.
-                </p>
-              </div>
+    <div className="min-h-screen bg-[#090a0f] text-zinc-100 selection:bg-emerald-500/20 selection:text-emerald-300">
+      {/* Top Navbar */}
+      <nav className="sticky top-0 z-40 border-b border-zinc-800/80 bg-[#090a0f]/90 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-inner">
+              <ShieldCheck className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm tracking-tight text-white font-mono">ScanFix</span>
+              <span className="text-zinc-600">/</span>
+              <span className="text-xs text-zinc-400 font-medium">License Authority</span>
+            </div>
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-mono">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Ed25519 Authority Active</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setShowPublicKeyModal(true)}
-              className="px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Key className="h-3.5 w-3.5 text-zinc-400" />
               <span>Public Key</span>
@@ -322,18 +332,51 @@ export default function LicenseServerDashboard() {
 
             <button
               onClick={fetchData}
-              className="p-2 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-              title="Refresh"
+              className="p-2 rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              title="Refresh Data"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
 
+            <div className="h-4 w-px bg-zinc-800 mx-1" />
+
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-900/60 border border-zinc-800/60">
+              <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center font-mono">
+                {adminEmail.slice(0, 1).toUpperCase()}
+              </div>
+              <span className="text-xs text-zinc-300 font-mono hidden md:inline">{adminEmail}</span>
+            </div>
+
+            <button
+              onClick={handleSignOut}
+              className="px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-red-500/30 bg-zinc-900/60 hover:bg-red-500/10 text-zinc-400 hover:text-red-400 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Page Title & Actions */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-white">License Control Plane</h1>
+            <p className="text-xs text-zinc-400">
+              Manage cryptographic licenses, enforce domain binding quotas, and oversee reseller distributions.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setShowCreateReseller(true)}
-              className="px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-2 rounded-xl border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 hover:border-zinc-700 text-zinc-200 text-xs font-medium flex items-center gap-2 transition-all cursor-pointer shadow-sm"
             >
-              <Users className="h-3.5 w-3.5 text-purple-400" />
-              <span>New Reseller</span>
+              <Users className="h-3.5 w-3.5 text-zinc-400" />
+              <span>Add Reseller</span>
             </button>
 
             <button
@@ -341,666 +384,879 @@ export default function LicenseServerDashboard() {
                 setCreatedLicense(null);
                 setShowCreateLicense(true);
               }}
-              className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/10 transition-colors"
+              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>Issue License Key</span>
             </button>
-
-            <div className="h-5 w-px bg-zinc-800 mx-1" />
-
-            <button
-              onClick={handleSignOut}
-              className="px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-              title={`Logged in as ${adminEmail}`}
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span>Sign Out</span>
-            </button>
           </div>
         </div>
 
-        {/* 4 Hero Stats */}
+        {/* 4 Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-1">
-            <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
-              Total Licenses
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold font-mono text-white">{licenses.length}</span>
-              <span className="text-xs text-emerald-400">{totalActive} active</span>
+          <div className="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 space-y-2">
+            <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
+              <span>Active Licenses</span>
+              <Shield className="h-4 w-4 text-emerald-400" />
             </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold font-mono text-white">{totalActive}</span>
+              <span className="text-xs text-zinc-500 font-mono">/ {licenses.length} total</span>
+            </div>
+            <p className="text-[11px] text-zinc-500">Cryptographically signed & active</p>
           </div>
 
-          <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-1">
-            <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
-              Active Domains
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold font-mono text-emerald-400">{totalActivations}</span>
-              <span className="text-xs text-zinc-500">bound instances</span>
+          <div className="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 space-y-2">
+            <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
+              <span>Bound Domains</span>
+              <Globe className="h-4 w-4 text-cyan-400" />
             </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold font-mono text-cyan-400">{totalActivations}</span>
+              <span className="text-xs text-zinc-500 font-mono">instances</span>
+            </div>
+            <p className="text-[11px] text-zinc-500">Live verified customer instances</p>
           </div>
 
-          <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-1">
-            <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
-              Revoked / Suspended
-            </span>
+          <div className="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 space-y-2">
+            <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
+              <span>Blocked / Revoked</span>
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
+            </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold font-mono text-amber-400">{totalSuspendedRevoked}</span>
-              <span className="text-xs text-zinc-500">instances blocked</span>
+              <span className="text-xs text-zinc-500 font-mono">enforced</span>
             </div>
+            <p className="text-[11px] text-zinc-500">Remote kill-switch active</p>
           </div>
 
-          <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-1">
-            <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
-              Reseller Partners
-            </span>
+          <div className="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 space-y-2">
+            <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
+              <span>Reseller Partners</span>
+              <Users className="h-4 w-4 text-purple-400" />
+            </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold font-mono text-purple-400">{resellers.length}</span>
-              <span className="text-xs text-zinc-500">quota managers</span>
+              <span className="text-xs text-zinc-500 font-mono">partners</span>
             </div>
+            <p className="text-[11px] text-zinc-500">Managing distribution quotas</p>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="border-b border-zinc-800 flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setActiveTab('licenses')}
-              className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 ${
-                activeTab === 'licenses'
-                  ? 'border-emerald-400 text-emerald-400 font-semibold'
-                  : 'border-transparent text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              <Key className="h-4 w-4" />
-              <span>Licenses ({licenses.length})</span>
-            </button>
+        {/* Tab Selector & Filter Bar */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-4">
+            {/* Pill Tabs */}
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-900/70 border border-zinc-800/80 w-fit">
+              <button
+                onClick={() => setActiveTab('licenses')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-2 ${
+                  activeTab === 'licenses'
+                    ? 'bg-zinc-800 text-white shadow-sm font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <Key className="h-3.5 w-3.5" />
+                <span>Licenses</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-zinc-900 text-zinc-400 text-[10px] font-mono">
+                  {licenses.length}
+                </span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('resellers')}
-              className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 ${
-                activeTab === 'resellers'
-                  ? 'border-emerald-400 text-emerald-400 font-semibold'
-                  : 'border-transparent text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              <Users className="h-4 w-4" />
-              <span>Resellers ({resellers.length})</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('resellers')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-2 ${
+                  activeTab === 'resellers'
+                    ? 'bg-zinc-800 text-white shadow-sm font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" />
+                <span>Resellers</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-zinc-900 text-zinc-400 text-[10px] font-mono">
+                  {resellers.length}
+                </span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('logs')}
-              className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 ${
-                activeTab === 'logs'
-                  ? 'border-emerald-400 text-emerald-400 font-semibold'
-                  : 'border-transparent text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              <Activity className="h-4 w-4" />
-              <span>Telemetry & Heartbeats ({logs.length})</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('logs')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-2 ${
+                  activeTab === 'logs'
+                    ? 'bg-zinc-800 text-white shadow-sm font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <Activity className="h-3.5 w-3.5" />
+                <span>Telemetry</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-zinc-900 text-zinc-400 text-[10px] font-mono">
+                  {logs.length}
+                </span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('docs')}
-              className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 ${
-                activeTab === 'docs'
-                  ? 'border-emerald-400 text-emerald-400 font-semibold'
-                  : 'border-transparent text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              <Code2 className="h-4 w-4" />
-              <span>Integration Guide</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('docs')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-2 ${
+                  activeTab === 'docs'
+                    ? 'bg-zinc-800 text-white shadow-sm font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <Code2 className="h-3.5 w-3.5" />
+                <span>Integration Guide</span>
+              </button>
+            </div>
+
+            {/* Search & Filters (only for licenses tab) */}
+            {activeTab === 'licenses' && (
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search key, email, customer..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 w-60 font-mono"
+                  />
+                </div>
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-300 focus:outline-none focus:border-zinc-700 cursor-pointer"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="revoked">Revoked</option>
+                  <option value="expired">Expired</option>
+                </select>
+
+                <select
+                  value={tierFilter}
+                  onChange={(e) => setTierFilter(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-300 focus:outline-none focus:border-zinc-700 cursor-pointer"
+                >
+                  <option value="all">All Tiers</option>
+                  <option value="agency">Agency</option>
+                  <option value="enterprise">Enterprise</option>
+                  <option value="pro">Pro</option>
+                  <option value="solo">Solo</option>
+                </select>
+              </div>
+            )}
           </div>
 
+          {/* TAB 1: LICENSES */}
           {activeTab === 'licenses' && (
-            <div className="pb-2">
-              <input
-                type="text"
-                placeholder="Search licenses, emails, domains..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 w-64"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Tab 1: Licenses Table */}
-        {activeTab === 'licenses' && (
-          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono">
-                <thead className="bg-zinc-950/80 border-b border-zinc-800/80 text-[11px] uppercase tracking-wider text-zinc-400">
-                  <tr>
-                    <th className="py-3.5 px-4 font-semibold">License Key</th>
-                    <th className="py-3.5 px-4 font-semibold">Customer / Email</th>
-                    <th className="py-3.5 px-4 font-semibold">Tier</th>
-                    <th className="py-3.5 px-4 font-semibold">Status</th>
-                    <th className="py-3.5 px-4 font-semibold">Bound Domains</th>
-                    <th className="py-3.5 px-4 font-semibold">Expires</th>
-                    <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/60 font-sans">
-                  {filteredLicenses.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-zinc-500 font-mono text-xs">
-                        No licenses match your search.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredLicenses.map((lic) => {
-                      const isExpired = lic.expiresAt && new Date(lic.expiresAt).getTime() < Date.now();
-                      const statusColor =
-                        lic.status === 'revoked'
-                          ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                          : lic.status === 'suspended'
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : isExpired
-                          ? 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-
-                      return (
-                        <tr key={lic.id} className="hover:bg-zinc-800/30 transition-colors">
-                          <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-semibold text-white tracking-wider">
-                                {lic.key}
-                              </span>
-                              <button
-                                onClick={() => handleCopy(lic.key, lic.id)}
-                                className="text-zinc-500 hover:text-zinc-300 transition-colors"
-                                title="Copy Key"
-                              >
-                                {copiedKey === lic.id ? (
-                                  <Check className="h-3.5 w-3.5 text-emerald-400" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5" />
-                                )}
-                              </button>
-                            </div>
-                          </td>
-
-                          <td className="py-3.5 px-4">
-                            <div>
-                              <div className="font-medium text-zinc-200">{lic.customerName}</div>
-                              <div className="text-[11px] text-zinc-500 font-mono">{lic.customerEmail}</div>
-                            </div>
-                          </td>
-
-                          <td className="py-3.5 px-4 font-mono">
-                            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-semibold bg-zinc-800 border border-zinc-700 text-zinc-300">
-                              {lic.tier}
-                            </span>
-                          </td>
-
-                          <td className="py-3.5 px-4 font-mono">
-                            <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-semibold border ${statusColor}`}>
-                              {isExpired ? 'EXPIRED' : lic.status.toUpperCase()}
-                            </span>
-                          </td>
-
-                          <td className="py-3.5 px-4 font-mono text-[11px]">
-                            {lic.activatedDomains.length > 0 ? (
-                              <div className="space-y-1">
-                                {lic.activatedDomains.map((d, i) => (
-                                  <div key={i} className="flex items-center gap-1.5 text-zinc-300">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                                    <span>{d.domain}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-zinc-500">Unused (Allowed: {lic.allowedDomains.join(', ')})</span>
-                            )}
-                          </td>
-
-                          <td className="py-3.5 px-4 font-mono text-xs">
-                            {lic.expiresAt ? (
-                              <span className={isExpired ? 'text-rose-400' : 'text-zinc-300'}>
-                                {new Date(lic.expiresAt).toLocaleDateString()}
-                              </span>
-                            ) : (
-                              <span className="text-emerald-400 font-semibold">Lifetime</span>
-                            )}
-                          </td>
-
-                          <td className="py-3.5 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {lic.status === 'active' ? (
-                                <button
-                                  onClick={() => handleToggleStatus(lic, 'suspended')}
-                                  className="px-2 py-1 rounded bg-zinc-800 hover:bg-amber-500/20 text-zinc-400 hover:text-amber-400 text-[10px] font-mono border border-zinc-700 transition-colors"
-                                  title="Temporarily suspend"
-                                >
-                                  Suspend
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleToggleStatus(lic, 'active')}
-                                  className="px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-mono border border-emerald-500/30 transition-colors"
-                                  title="Reactivate"
-                                >
-                                  Activate
-                                </button>
-                              )}
-
-                              {lic.status !== 'revoked' && (
-                                <button
-                                  onClick={() => handleToggleStatus(lic, 'revoked')}
-                                  className="px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[10px] font-mono border border-rose-500/30 transition-colors"
-                                  title="Remote Kill Switch"
-                                >
-                                  Revoke
-                                </button>
-                              )}
-
-                              <button
-                                onClick={() => handleRenew(lic, 30)}
-                                className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-mono border border-zinc-700 transition-colors"
-                                title="Add 30 days"
-                              >
-                                +30d
-                              </button>
-
-                              <button
-                                onClick={() => handleDelete(lic)}
-                                className="p-1 rounded text-zinc-500 hover:text-rose-400 transition-colors"
-                                title="Delete License"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 2: Resellers */}
-        {activeTab === 'resellers' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {resellers.map((r) => {
-                const pct = Math.round((r.quotaUsed / r.quotaLimit) * 100);
-                return (
-                  <div
-                    key={r.id}
-                    className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800 space-y-4 relative overflow-hidden"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="text-base font-bold text-white">{r.name}</h4>
-                        <p className="text-xs text-zinc-400 font-mono">{r.email}</p>
-                      </div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                        Reseller
-                      </span>
-                    </div>
-
-                    <div className="space-y-1.5 font-mono text-xs">
-                      <div className="flex justify-between text-zinc-400">
-                        <span>Quota Used:</span>
-                        <span className="font-bold text-white">
-                          {r.quotaUsed} / {r.quotaLimit} keys ({pct}%)
-                        </span>
-                      </div>
-                      <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-purple-500 rounded-full transition-all"
-                          style={{ width: `${Math.min(pct, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="p-2 rounded bg-zinc-950 border border-zinc-800 font-mono text-[11px] text-zinc-400 flex items-center justify-between">
-                      <span className="truncate mr-2">API Key: {r.apiKey}</span>
-                      <button
-                        onClick={() => handleCopy(r.apiKey, r.id)}
-                        className="text-zinc-500 hover:text-zinc-300 shrink-0"
-                      >
-                        {copiedKey === r.id ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
+            <div>
+              {filteredLicenses.length === 0 ? (
+                <div className="p-12 rounded-2xl border border-zinc-800/80 bg-zinc-900/20 text-center space-y-4">
+                  <div className="inline-flex p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-zinc-500 shadow-inner">
+                    <Key className="h-8 w-8" />
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Tab 3: Telemetry & Logs */}
-        {activeTab === 'logs' && (
-          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono">
-                <thead className="bg-zinc-950/80 border-b border-zinc-800/80 text-[11px] uppercase tracking-wider text-zinc-400">
-                  <tr>
-                    <th className="py-3 px-4">Timestamp</th>
-                    <th className="py-3 px-4">Action</th>
-                    <th className="py-3 px-4">License Key</th>
-                    <th className="py-3 px-4">Domain</th>
-                    <th className="py-3 px-4">IP Address</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Details</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/60">
-                  {logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-zinc-800/30">
-                      <td className="py-3 px-4 text-zinc-500">
-                        {new Date(log.timestamp).toLocaleTimeString()}
-                      </td>
-                      <td className="py-3 px-4 uppercase text-zinc-300 font-semibold">{log.action}</td>
-                      <td className="py-3 px-4 text-white font-mono">{log.licenseKey || '—'}</td>
-                      <td className="py-3 px-4 text-emerald-400">{log.domain || '—'}</td>
-                      <td className="py-3 px-4 text-zinc-400">{log.ip || '—'}</td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold ${
-                            log.status === 'success'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          }`}
-                        >
-                          {log.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-zinc-400 font-sans text-xs">{log.reason || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 4: Integration Docs */}
-        {activeTab === 'docs' && (
-          <div className="space-y-6 max-w-4xl text-sm">
-            <div className="p-6 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-4">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Code2 className="h-5 w-5 text-emerald-400" />
-                <span>How ScanFix Connects to this License Server</span>
-              </h3>
-              <p className="text-zinc-300 leading-relaxed text-xs">
-                To connect any deployed ScanFix instance to this License Server, the buyer or reseller sets these two environment variables:
-              </p>
-
-              <div className="p-4 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-xs text-emerald-400">
-                <pre>{`# .env.local on the ScanFix instance
-LICENSE_SERVER_URL=http://localhost:4000
-LICENSE_KEY=SF-XXXX-XXXX-XXXX-XXXX`}</pre>
-              </div>
-
-              <h4 className="text-sm font-semibold text-white pt-2">Verification Flow:</h4>
-              <ol className="list-decimal list-inside space-y-2 text-xs text-zinc-400">
-                <li>
-                  <strong className="text-zinc-200">First Launch (/setup):</strong> ScanFix makes a <code>POST /api/v1/license/activate</code> request to bind the buyer&apos;s domain.
-                </li>
-                <li>
-                  <strong className="text-zinc-200">Cryptographic Signing:</strong> The License Server returns an Ed25519 digitally signed token verifying the domain and plan tier.
-                </li>
-                <li>
-                  <strong className="text-zinc-200">Heartbeat Check (/verify):</strong> ScanFix sends a periodic check-in. If you click <em>Revoke</em> or <em>Suspend</em>, ScanFix immediately locks the instance.
-                </li>
-              </ol>
-            </div>
-          </div>
-        )}
-
-        {/* Modal: Create License Key */}
-        {showCreateLicense && (
-          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md p-6 space-y-5 shadow-2xl">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Key className="h-4 w-4 text-emerald-400" />
-                  <span>Generate New License</span>
-                </h3>
-                <button onClick={() => setShowCreateLicense(false)} className="text-zinc-500 hover:text-white">
-                  ✕
-                </button>
-              </div>
-
-              {createdLicense ? (
-                <div className="space-y-4 py-2">
-                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2.5">
-                    <CheckCircle2 className="h-5 w-5 shrink-0" />
-                    <span>License key created and ready for distribution!</span>
+                  <div className="space-y-1 max-w-sm mx-auto">
+                    <h3 className="text-sm font-semibold text-zinc-200">No license keys found</h3>
+                    <p className="text-xs text-zinc-500">
+                      {search || statusFilter !== 'all' || tierFilter !== 'all'
+                        ? 'No licenses match your current search and filter criteria.'
+                        : 'Issue your first cryptographic Ed25519 license key to grant access to a buyer or client.'}
+                    </p>
                   </div>
-
-                  <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 space-y-2 font-mono text-xs">
-                    <span className="text-zinc-500 block">License Key:</span>
-                    <div className="flex items-center justify-between bg-zinc-950 p-2.5 rounded border border-zinc-800 text-white font-bold text-sm">
-                      <span>{createdLicense.key}</span>
-                      <button
-                        onClick={() => handleCopy(createdLicense.key, 'created')}
-                        className="text-zinc-400 hover:text-white"
-                      >
-                        {copiedKey === 'created' ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-
                   <button
                     onClick={() => {
-                      setShowCreateLicense(false);
                       setCreatedLicense(null);
+                      setShowCreateLicense(true);
                     }}
-                    className="w-full py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold"
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs transition-all cursor-pointer inline-flex items-center gap-2"
                   >
-                    Done
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Issue First License</span>
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleCreateLicense} className="space-y-3 text-xs">
-                  <div>
-                    <label className="text-zinc-400 block mb-1">Customer Name</label>
+                <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/30 overflow-hidden shadow-xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-zinc-950/60 border-b border-zinc-800/80 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                        <tr>
+                          <th className="py-3.5 px-4">License Key</th>
+                          <th className="py-3.5 px-4">Customer</th>
+                          <th className="py-3.5 px-4">Tier</th>
+                          <th className="py-3.5 px-4">Status</th>
+                          <th className="py-3.5 px-4">Domains</th>
+                          <th className="py-3.5 px-4">Expiration</th>
+                          <th className="py-3.5 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/50">
+                        {filteredLicenses.map((lic) => {
+                          const isCopied = copiedKey === lic.key;
+                          return (
+                            <tr key={lic.id} className="hover:bg-zinc-800/30 transition-colors">
+                              {/* License Key */}
+                              <td className="py-3.5 px-4 font-mono">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white font-medium">{lic.key}</span>
+                                  <button
+                                    onClick={() => handleCopy(lic.key, lic.key)}
+                                    className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 cursor-pointer"
+                                    title="Copy License Key"
+                                  >
+                                    {isCopied ? (
+                                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                    ) : (
+                                      <Copy className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+
+                              {/* Customer */}
+                              <td className="py-3.5 px-4">
+                                <div>
+                                  <div className="font-medium text-zinc-200">{lic.customerName}</div>
+                                  <div className="text-[11px] text-zinc-500 font-mono">{lic.customerEmail}</div>
+                                </div>
+                              </td>
+
+                              {/* Tier */}
+                              <td className="py-3.5 px-4">
+                                <span
+                                  className={`px-2 py-0.5 rounded-md text-[11px] font-medium font-mono uppercase ${
+                                    lic.tier === 'enterprise'
+                                      ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                      : lic.tier === 'agency'
+                                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                      : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                  }`}
+                                >
+                                  {lic.tier}
+                                </span>
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-3.5 px-4">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                                    lic.status === 'active'
+                                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                      : lic.status === 'suspended'
+                                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                  }`}
+                                >
+                                  <span
+                                    className={`h-1.5 w-1.5 rounded-full ${
+                                      lic.status === 'active'
+                                        ? 'bg-emerald-400'
+                                        : lic.status === 'suspended'
+                                        ? 'bg-amber-400'
+                                        : 'bg-red-400'
+                                    }`}
+                                  />
+                                  <span className="capitalize">{lic.status}</span>
+                                </span>
+                              </td>
+
+                              {/* Domains */}
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-1">
+                                  <div className="text-xs font-mono text-zinc-300">
+                                    {lic.activatedDomains.length} / {lic.maxDomains}
+                                  </div>
+                                  <div className="w-24 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${
+                                        lic.activatedDomains.length >= lic.maxDomains
+                                          ? 'bg-amber-400'
+                                          : 'bg-emerald-400'
+                                      }`}
+                                      style={{
+                                        width: `${Math.min(
+                                          100,
+                                          (lic.activatedDomains.length / lic.maxDomains) * 100
+                                        )}%`,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Expiry */}
+                              <td className="py-3.5 px-4 text-xs font-mono text-zinc-400">
+                                {lic.expiresAt ? (
+                                  <span>{new Date(lic.expiresAt).toLocaleDateString()}</span>
+                                ) : (
+                                  <span className="text-emerald-400 font-medium">Lifetime</span>
+                                )}
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-3.5 px-4 text-right">
+                                <div className="inline-flex items-center gap-1.5">
+                                  {lic.status === 'active' ? (
+                                    <button
+                                      onClick={() => handleToggleStatus(lic, 'revoked')}
+                                      className="px-2 py-1 rounded bg-zinc-800/80 hover:bg-red-500/10 hover:text-red-400 text-zinc-400 text-[11px] font-medium transition-colors cursor-pointer"
+                                      title="Revoke License"
+                                    >
+                                      Revoke
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleToggleStatus(lic, 'active')}
+                                      className="px-2 py-1 rounded bg-zinc-800/80 hover:bg-emerald-500/10 hover:text-emerald-400 text-zinc-400 text-[11px] font-medium transition-colors cursor-pointer"
+                                      title="Reactivate License"
+                                    >
+                                      Activate
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => handleRenew(lic, 30)}
+                                    className="px-2 py-1 rounded bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 text-[11px] font-medium transition-colors cursor-pointer"
+                                    title="Add 30 Days"
+                                  >
+                                    +30d
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleDelete(lic)}
+                                    className="p-1 rounded text-zinc-500 hover:text-red-400 transition-colors cursor-pointer"
+                                    title="Delete License"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: RESELLERS */}
+          {activeTab === 'resellers' && (
+            <div>
+              {resellers.length === 0 ? (
+                <div className="p-12 rounded-2xl border border-zinc-800/80 bg-zinc-900/20 text-center space-y-4">
+                  <div className="inline-flex p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-zinc-500 shadow-inner">
+                    <Users className="h-8 w-8" />
+                  </div>
+                  <div className="space-y-1 max-w-sm mx-auto">
+                    <h3 className="text-sm font-semibold text-zinc-200">No reseller partners configured</h3>
+                    <p className="text-xs text-zinc-500">
+                      Create reseller accounts to allocate license issuance quotas to white-label partners or agencies.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowCreateReseller(true)}
+                    className="px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-zinc-950 font-semibold text-xs transition-all cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add First Reseller</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/30 overflow-hidden shadow-xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-zinc-950/60 border-b border-zinc-800/80 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                        <tr>
+                          <th className="py-3.5 px-4">Reseller Name</th>
+                          <th className="py-3.5 px-4">Contact Email</th>
+                          <th className="py-3.5 px-4">API Key</th>
+                          <th className="py-3.5 px-4">Quota Usage</th>
+                          <th className="py-3.5 px-4">Status</th>
+                          <th className="py-3.5 px-4 text-right">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/50">
+                        {resellers.map((reseller) => {
+                          const isKeyCopied = copiedKey === reseller.apiKey;
+                          return (
+                            <tr key={reseller.id} className="hover:bg-zinc-800/30 transition-colors">
+                              <td className="py-3.5 px-4 font-medium text-zinc-200">{reseller.name}</td>
+                              <td className="py-3.5 px-4 font-mono text-zinc-400">{reseller.email}</td>
+                              <td className="py-3.5 px-4 font-mono">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-zinc-300">
+                                    {reseller.apiKey.slice(0, 10)}...{reseller.apiKey.slice(-4)}
+                                  </span>
+                                  <button
+                                    onClick={() => handleCopy(reseller.apiKey, reseller.apiKey)}
+                                    className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 cursor-pointer"
+                                  >
+                                    {isKeyCopied ? (
+                                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                    ) : (
+                                      <Copy className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-1">
+                                  <div className="text-xs font-mono text-zinc-300">
+                                    {reseller.quotaUsed} / {reseller.quotaLimit}
+                                  </div>
+                                  <div className="w-24 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-purple-400"
+                                      style={{
+                                        width: `${Math.min(
+                                          100,
+                                          (reseller.quotaUsed / reseller.quotaLimit) * 100
+                                        )}%`,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 capitalize">
+                                  {reseller.status}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-zinc-500">
+                                {new Date(reseller.createdAt).toLocaleDateString()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: TELEMETRY & LOGS */}
+          {activeTab === 'logs' && (
+            <div>
+              {logs.length === 0 ? (
+                <div className="p-12 rounded-2xl border border-zinc-800/80 bg-zinc-900/20 text-center space-y-3">
+                  <Activity className="h-8 w-8 text-zinc-500 mx-auto" />
+                  <h3 className="text-sm font-semibold text-zinc-200">No telemetry recorded yet</h3>
+                  <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                    Heartbeat checks, domain activations, and verification pings will appear here in real time.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/30 overflow-hidden shadow-xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs font-mono">
+                      <thead className="bg-zinc-950/60 border-b border-zinc-800/80 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                        <tr>
+                          <th className="py-3 px-4">Timestamp</th>
+                          <th className="py-3 px-4">Action</th>
+                          <th className="py-3 px-4">License Key</th>
+                          <th className="py-3 px-4">Domain / IP</th>
+                          <th className="py-3 px-4">Status</th>
+                          <th className="py-3 px-4">Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/50 font-sans">
+                        {logs.map((log) => (
+                          <tr key={log.id} className="hover:bg-zinc-800/30 transition-colors text-xs">
+                            <td className="py-3 px-4 font-mono text-zinc-500 whitespace-nowrap">
+                              {new Date(log.timestamp).toLocaleTimeString()}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono text-[10px] uppercase">
+                                {log.action}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 font-mono text-white">{log.licenseKey}</td>
+                            <td className="py-3 px-4 font-mono text-zinc-400">
+                              {log.domain || '-'} {log.ip ? `(${log.ip})` : ''}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-medium font-mono uppercase ${
+                                  log.status === 'success'
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                }`}
+                              >
+                                {log.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-zinc-400 text-xs">{log.reason || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: INTEGRATION GUIDE */}
+          {activeTab === 'docs' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Card 1: How Buyers Activate */}
+                <div className="p-6 rounded-2xl border border-zinc-800/80 bg-zinc-900/30 space-y-4">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Terminal className="h-5 w-5" />
+                    <h3 className="text-sm font-semibold text-white">1. Buyer SaaS Activation</h3>
+                  </div>
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    When you sell the ScanFix source code, buyers deploy their own instance. They activate their license via the web setup wizard at <code className="text-emerald-400 font-mono">/setup</code> or by setting their environment variable.
+                  </p>
+                  <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800/90 font-mono text-xs text-zinc-300 space-y-1">
+                    <div className="text-zinc-500"># In buyer's .env.local:</div>
+                    <div>LICENSE_SERVER_URL=https://scanfix-license-server.vercel.app</div>
+                    <div>LICENSE_KEY=SF-XXXX-XXXX-XXXX-XXXX</div>
+                  </div>
+                </div>
+
+                {/* Card 2: Remote Kill-Switch */}
+                <div className="p-6 rounded-2xl border border-zinc-800/80 bg-zinc-900/30 space-y-4">
+                  <div className="flex items-center gap-2 text-cyan-400">
+                    <Lock className="h-5 w-5" />
+                    <h3 className="text-sm font-semibold text-white">2. Remote Kill-Switch & Domain Lock</h3>
+                  </div>
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Buyer instances phone home to verify their digital signature. If a buyer charges back or violates your terms, click <strong>"Revoke"</strong> on the dashboard. Their instance will be locked on their next check-in.
+                  </p>
+                  <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800/90 font-mono text-xs text-zinc-300 space-y-1">
+                    <div className="text-zinc-500"># Offline Grace Period:</div>
+                    <div>7 days offline tolerance before requiring a successful heartbeat check-in.</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* API Endpoints Table */}
+              <div className="p-6 rounded-2xl border border-zinc-800/80 bg-zinc-900/30 space-y-4">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-emerald-400" />
+                  <span>Public & Admin API Endpoints</span>
+                </h3>
+                <div className="divide-y divide-zinc-800/60 font-mono text-xs">
+                  <div className="py-2.5 flex items-center justify-between">
+                    <span className="text-zinc-300">POST /api/v1/license/activate</span>
+                    <span className="text-zinc-500">Activates key & binds customer domain</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between">
+                    <span className="text-zinc-300">POST /api/v1/license/verify</span>
+                    <span className="text-zinc-500">Heartbeat check-in & kill-switch validation</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between">
+                    <span className="text-zinc-300">GET /api/v1/license/public-key</span>
+                    <span className="text-zinc-500">Returns Ed25519 public key for local verification</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between">
+                    <span className="text-zinc-300">POST /api/v1/admin/licenses</span>
+                    <span className="text-zinc-500">Admin/Reseller license creation (Protected)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* MODAL: ISSUE NEW LICENSE */}
+      {showCreateLicense && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <Plus className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Issue New License</h3>
+                  <p className="text-xs text-zinc-500">Generate a cryptographically signed key</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateLicense(false)}
+                className="text-zinc-500 hover:text-zinc-300 cursor-pointer text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {createdLicense ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center space-y-2">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-400 mx-auto" />
+                  <h4 className="text-sm font-bold text-white">License Generated Successfully!</h4>
+                  <p className="text-xs text-zinc-400">Deliver this license key to your customer.</p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-between">
+                  <span className="font-mono text-sm font-bold text-emerald-400">{createdLicense.key}</span>
+                  <button
+                    onClick={() => handleCopy(createdLicense.key, 'modal-key')}
+                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {copiedKey === 'modal-key' ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>Copy Key</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="space-y-2 text-xs text-zinc-400">
+                  <div className="flex justify-between">
+                    <span>Customer:</span>
+                    <span className="text-white font-medium">{createdLicense.customerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Email:</span>
+                    <span className="font-mono text-white">{createdLicense.customerEmail}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tier:</span>
+                    <span className="uppercase font-mono text-emerald-400">{createdLicense.tier}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Max Domains:</span>
+                    <span className="font-mono text-white">{createdLicense.maxDomains}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowCreateLicense(false)}
+                  className="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs transition-colors cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleCreateLicense} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-300">Customer Name</label>
                     <input
                       type="text"
                       required
-                      placeholder="Acme Agency LLC"
+                      placeholder="e.g. Apex Agency"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white"
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50"
                     />
                   </div>
 
-                  <div>
-                    <label className="text-zinc-400 block mb-1">Customer Email</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-300">Customer Email</label>
                     <input
                       type="email"
                       required
-                      placeholder="client@acme.com"
+                      placeholder="buyer@agency.com"
                       value={customerEmail}
                       onChange={(e) => setCustomerEmail(e.target.value)}
-                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white"
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50 font-mono"
                     />
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-zinc-400 block mb-1">Plan Tier</label>
-                      <select
-                        value={tier}
-                        onChange={(e: any) => setTier(e.target.value)}
-                        className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white"
+                {/* Tier Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-zinc-300">Plan Tier</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['solo', 'pro', 'agency', 'enterprise'] as const).map((t) => (
+                      <button
+                        type="button"
+                        key={t}
+                        onClick={() => setTier(t)}
+                        className={`py-2 px-2 rounded-xl text-xs font-medium uppercase font-mono transition-all cursor-pointer ${
+                          tier === t
+                            ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 font-bold'
+                            : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                        }`}
                       >
-                        <option value="solo">Solo ($49/mo)</option>
-                        <option value="pro">Pro ($99/mo)</option>
-                        <option value="agency">Agency ($249/mo)</option>
-                        <option value="enterprise">Enterprise</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-zinc-400 block mb-1">Duration</label>
-                      <select
-                        value={durationDays}
-                        onChange={(e) => setDurationDays(e.target.value)}
-                        className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white"
-                      >
-                        <option value="30">30 Days</option>
-                        <option value="365">1 Year</option>
-                        <option value="lifetime">Lifetime</option>
-                      </select>
-                    </div>
+                        {t}
+                      </button>
+                    ))}
                   </div>
+                </div>
 
-                  <div>
-                    <label className="text-zinc-400 block mb-1">Allowed Domains (comma-separated, * for any)</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-300">Max Allowed Domains</label>
                     <input
-                      type="text"
-                      placeholder="client.com, *.client.com"
-                      value={allowedDomains}
-                      onChange={(e) => setAllowedDomains(e.target.value)}
-                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white font-mono"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={maxDomains}
+                      onChange={(e) => setMaxDomains(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500/50 font-mono"
                     />
                   </div>
 
-                  {resellers.length > 0 && (
-                    <div>
-                      <label className="text-zinc-400 block mb-1">Assign to Reseller (optional)</label>
-                      <select
-                        value={selectedResellerId}
-                        onChange={(e) => setSelectedResellerId(e.target.value)}
-                        className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white"
-                      >
-                        <option value="">Direct Sale (Master Admin)</option>
-                        {resellers.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name} (Quota: {r.quotaUsed}/{r.quotaLimit})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="pt-3">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-colors flex items-center justify-center gap-2"
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-300">Duration</label>
+                    <select
+                      value={durationDays}
+                      onChange={(e) => setDurationDays(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500/50 cursor-pointer"
                     >
-                      {isSubmitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
-                      <span>Generate & Issue Key</span>
-                    </button>
+                      <option value="365">1 Year (365 days)</option>
+                      <option value="180">6 Months (180 days)</option>
+                      <option value="30">1 Month (30 days)</option>
+                      <option value="lifetime">Lifetime (No Expiry)</option>
+                    </select>
                   </div>
-                </form>
-              )}
-            </div>
-          </div>
-        )}
+                </div>
 
-        {/* Modal: Add Reseller */}
-        {showCreateReseller && (
-          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Users className="h-4 w-4 text-purple-400" />
-                  <span>Onboard New Reseller</span>
-                </h3>
-                <button onClick={() => setShowCreateReseller(false)} className="text-zinc-500 hover:text-white">
-                  ✕
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateReseller} className="space-y-3 text-xs">
-                <div>
-                  <label className="text-zinc-400 block mb-1">Partner / Reseller Name</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-300">
+                    Allowed Domains <span className="text-zinc-500 font-normal">(* for any domain)</span>
+                  </label>
                   <input
                     type="text"
-                    required
-                    placeholder="SaaS Launchpad Agency"
-                    value={resellerName}
-                    onChange={(e) => setResellerName(e.target.value)}
-                    className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white"
+                    value={allowedDomains}
+                    onChange={(e) => setAllowedDomains(e.target.value)}
+                    placeholder="* or app.client.com, staging.client.com"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-100 font-mono focus:outline-none focus:border-emerald-500/50"
                   />
                 </div>
 
-                <div>
-                  <label className="text-zinc-400 block mb-1">Partner Email</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="partner@agency.com"
-                    value={resellerEmail}
-                    onChange={(e) => setResellerEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-zinc-400 block mb-1">License Quota (Allowed Keys)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={1000}
-                    value={resellerQuota}
-                    onChange={(e) => setResellerQuota(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white font-mono"
-                  />
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors"
-                  >
-                    Create Reseller Account
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modal: View Public Key */}
-        {showPublicKeyModal && (
-          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Key className="h-4 w-4 text-emerald-400" />
-                  <span>Authority Ed25519 Public Key</span>
-                </h3>
-                <button onClick={() => setShowPublicKeyModal(false)} className="text-zinc-500 hover:text-white">
-                  ✕
-                </button>
-              </div>
-
-              <p className="text-xs text-zinc-400">
-                This public key verifies digital signatures issued by this server. It can be shared publicly or embedded into ScanFix instances for offline verification.
-              </p>
-
-              <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 font-mono text-[11px] text-zinc-300 break-all overflow-x-auto">
-                <pre>{publicKey}</pre>
-              </div>
-
-              <div className="flex justify-end">
                 <button
-                  onClick={() => handleCopy(publicKey, 'pubkey')}
-                  className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold flex items-center gap-1.5"
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs transition-all shadow-lg shadow-emerald-500/20 cursor-pointer disabled:opacity-50"
                 >
-                  {copiedKey === 'pubkey' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                  <span>Copy Public Key</span>
+                  {isSubmitting ? 'Signing with Ed25519...' : 'Generate & Issue License Key'}
                 </button>
-              </div>
-            </div>
+              </form>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD RESELLER */}
+      {showCreateReseller && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-purple-400" />
+                <h3 className="text-sm font-semibold text-white">Add Reseller Partner</h3>
+              </div>
+              <button
+                onClick={() => setShowCreateReseller(false)}
+                className="text-zinc-500 hover:text-zinc-300 cursor-pointer text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateReseller} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-zinc-300">Partner Organization / Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Apex Cloud Solutions"
+                  value={resellerName}
+                  onChange={(e) => setResellerName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-100 focus:outline-none focus:border-purple-500/50"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-zinc-300">Partner Contact Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="partner@agency.com"
+                  value={resellerEmail}
+                  onChange={(e) => setResellerEmail(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-100 font-mono focus:outline-none focus:border-purple-500/50"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-zinc-300">License Issuance Quota</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={resellerQuota}
+                  onChange={(e) => setResellerQuota(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-100 font-mono focus:outline-none focus:border-purple-500/50"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full mt-2 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-400 text-zinc-950 font-semibold text-xs transition-all shadow-lg shadow-purple-500/20 cursor-pointer"
+              >
+                {isSubmitting ? 'Creating...' : 'Create Reseller Partner'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PUBLIC KEY */}
+      {showPublicKeyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Key className="h-4 w-4 text-emerald-400" />
+                <h3 className="text-sm font-semibold text-white">Ed25519 Public Key</h3>
+              </div>
+              <button
+                onClick={() => setShowPublicKeyModal(false)}
+                className="text-zinc-500 hover:text-zinc-300 cursor-pointer text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-400">
+              This public key is distributed to client instances to verify digitally signed license tokens offline.
+            </p>
+
+            <div className="relative">
+              <pre className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 font-mono text-[11px] text-emerald-400 overflow-x-auto select-all leading-relaxed">
+                {publicKey || 'Loading key...'}
+              </pre>
+            </div>
+
+            <button
+              onClick={() => handleCopy(publicKey, 'pubkey-modal')}
+              className="w-full py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {copiedKey === 'pubkey-modal' ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Public Key Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" />
+                  <span>Copy Public Key</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
