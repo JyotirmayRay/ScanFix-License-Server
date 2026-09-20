@@ -57,8 +57,17 @@ interface DatabaseSchema {
   auditLogs: AuditLog[];
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+import os from 'os';
+
+const isVercel = !!process.env.VERCEL;
+const DATA_DIR = isVercel
+  ? path.join(os.tmpdir(), 'scanfix-license-server', 'data')
+  : path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DATA_DIR, 'db.json');
+
+const globalForDb = globalThis as unknown as {
+  __LICENSE_DB_DATA__?: DatabaseSchema;
+};
 
 class Database {
   private data: DatabaseSchema = {
@@ -73,28 +82,39 @@ class Database {
 
   private load() {
     try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
+      if (globalForDb.__LICENSE_DB_DATA__) {
+        this.data = globalForDb.__LICENSE_DB_DATA__;
+        return;
       }
+
       if (fs.existsSync(DB_PATH)) {
         const raw = fs.readFileSync(DB_PATH, 'utf8');
         this.data = JSON.parse(raw);
-      } else {
-        this.save();
+        globalForDb.__LICENSE_DB_DATA__ = this.data;
+        return;
       }
     } catch (err) {
       console.error('[DB] Load error, initializing empty:', err);
     }
+
+    this.data = {
+      licenses: [],
+      resellers: [],
+      auditLogs: [],
+    };
+    globalForDb.__LICENSE_DB_DATA__ = this.data;
+    this.save();
   }
 
   private save() {
     try {
+      globalForDb.__LICENSE_DB_DATA__ = this.data;
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
       fs.writeFileSync(DB_PATH, JSON.stringify(this.data, null, 2), 'utf8');
     } catch (err) {
-      console.error('[DB] Save error:', err);
+      console.warn('[DB] Could not write to disk, using in-memory store:', err);
     }
   }
 
