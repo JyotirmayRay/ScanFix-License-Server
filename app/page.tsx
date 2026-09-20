@@ -30,8 +30,12 @@ import {
   Server,
   Lock,
   Zap,
+  Palette,
+  Sparkles,
+  Layers,
+  Save,
 } from 'lucide-react';
-import type { License, Reseller, AuditLog } from '@/lib/db';
+import type { License, Reseller, AuditLog, BrandingConfig } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +43,7 @@ export default function LicenseServerDashboard() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [adminEmail, setAdminEmail] = useState('admin@scanfix.dev');
-  const [activeTab, setActiveTab] = useState<'licenses' | 'resellers' | 'logs' | 'docs'>('licenses');
+  const [activeTab, setActiveTab] = useState<'licenses' | 'resellers' | 'logs' | 'branding' | 'docs'>('licenses');
   const [licenses, setLicenses] = useState<License[]>([]);
   const [resellers, setResellers] = useState<Reseller[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -49,6 +53,21 @@ export default function LicenseServerDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // White-Label Branding state
+  const [branding, setBranding] = useState<BrandingConfig>({
+    companyName: 'ScanFix',
+    serverName: 'License Authority',
+    logoUrl: '',
+    brandColor: '#10b981',
+    keyPrefix: 'SF',
+    supportEmail: 'support@scanfix.dev',
+    supportUrl: '',
+    footerText: 'Protected by Cryptographic Token Authority',
+    hideScanFixBranding: false,
+  });
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
+  const [brandingSuccess, setBrandingSuccess] = useState(false);
 
   // Modals
   const [showCreateLicense, setShowCreateLicense] = useState(false);
@@ -75,11 +94,12 @@ export default function LicenseServerDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [licRes, resRes, logRes, keyRes] = await Promise.all([
+      const [licRes, resRes, logRes, keyRes, brandRes] = await Promise.all([
         fetch('/api/v1/admin/licenses'),
         fetch('/api/v1/admin/resellers'),
         fetch('/api/v1/admin/logs'),
         fetch('/api/v1/license/public-key'),
+        fetch('/api/v1/admin/branding'),
       ]);
 
       if (licRes.status === 401) {
@@ -103,6 +123,10 @@ export default function LicenseServerDashboard() {
       if (keyRes.ok) {
         const d = await keyRes.json();
         setPublicKey(d.publicKey || '');
+      }
+      if (brandRes.ok) {
+        const b = await brandRes.json();
+        if (b.branding) setBranding(b.branding);
       }
     } catch (err) {
       console.error('Failed to load license server data:', err);
@@ -151,6 +175,33 @@ export default function LicenseServerDashboard() {
     navigator.clipboard.writeText(text);
     setCopiedKey(id);
     setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const handleSaveBranding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingBranding(true);
+    setBrandingSuccess(false);
+
+    try {
+      const res = await fetch('/api/v1/admin/branding', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(branding),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update branding settings.');
+      }
+
+      setBranding(data.branding);
+      setBrandingSuccess(true);
+      setTimeout(() => setBrandingSuccess(false), 3000);
+    } catch (err: any) {
+      alert(err.message || 'Error updating branding');
+    } finally {
+      setIsSavingBranding(false);
+    }
   };
 
   const handleCreateLicense = async (e: React.FormEvent) => {
@@ -307,17 +358,29 @@ export default function LicenseServerDashboard() {
       <nav className="sticky top-0 z-40 border-b border-zinc-800/80 bg-[#090a0f]/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-inner">
-              <ShieldCheck className="h-5 w-5 text-emerald-400" />
-            </div>
+            {branding.logoUrl ? (
+              <img
+                src={branding.logoUrl}
+                alt={branding.companyName}
+                className="h-8 max-w-[140px] object-contain rounded-lg"
+              />
+            ) : (
+              <div
+                className="h-9 w-9 rounded-xl flex items-center justify-center shadow-inner"
+                style={{ backgroundColor: `${branding.brandColor}15`, border: `1px solid ${branding.brandColor}30` }}
+              >
+                <ShieldCheck className="h-5 w-5" style={{ color: branding.brandColor }} />
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm tracking-tight text-white font-mono">ScanFix</span>
+              <span className="font-semibold text-sm tracking-tight text-white font-mono">
+                {branding.companyName}
+              </span>
               <span className="text-zinc-600">/</span>
-              <span className="text-xs text-zinc-400 font-medium">License Authority</span>
-            </div>
-            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-mono">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Ed25519 Authority Active</span>
+              <span className="text-xs text-zinc-400 font-medium">
+                {branding.serverName}
+              </span>
             </div>
           </div>
 
@@ -341,7 +404,10 @@ export default function LicenseServerDashboard() {
             <div className="h-4 w-px bg-zinc-800 mx-1" />
 
             <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-900/60 border border-zinc-800/60">
-              <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center font-mono">
+              <div
+                className="h-5 w-5 rounded-full text-[10px] font-bold flex items-center justify-center font-mono"
+                style={{ backgroundColor: `${branding.brandColor}20`, color: branding.brandColor }}
+              >
                 {adminEmail.slice(0, 1).toUpperCase()}
               </div>
               <span className="text-xs text-zinc-300 font-mono hidden md:inline">{adminEmail}</span>
@@ -364,7 +430,9 @@ export default function LicenseServerDashboard() {
         {/* Page Title & Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-white">License Control Plane</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white">
+              {branding.companyName} {branding.serverName}
+            </h1>
             <p className="text-xs text-zinc-400">
               Manage cryptographic licenses, enforce domain binding quotas, and oversee reseller distributions.
             </p>
@@ -384,7 +452,11 @@ export default function LicenseServerDashboard() {
                 setCreatedLicense(null);
                 setShowCreateLicense(true);
               }}
-              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+              className="px-4 py-2 rounded-xl text-zinc-950 font-semibold text-xs flex items-center gap-2 shadow-lg transition-all cursor-pointer"
+              style={{
+                backgroundColor: branding.brandColor,
+                boxShadow: `0 10px 25px -5px ${branding.brandColor}30`,
+              }}
             >
               <Plus className="h-4 w-4" />
               <span>Issue License Key</span>
@@ -397,7 +469,7 @@ export default function LicenseServerDashboard() {
           <div className="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 space-y-2">
             <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
               <span>Active Licenses</span>
-              <Shield className="h-4 w-4 text-emerald-400" />
+              <Shield className="h-4 w-4" style={{ color: branding.brandColor }} />
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold font-mono text-white">{totalActive}</span>
@@ -446,8 +518,8 @@ export default function LicenseServerDashboard() {
         {/* Tab Selector & Filter Bar */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-4">
-            {/* Pill Tabs */}
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-900/70 border border-zinc-800/80 w-fit">
+            {/* Segmented Pill Tabs */}
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-900/70 border border-zinc-800/80 w-fit overflow-x-auto">
               <button
                 onClick={() => setActiveTab('licenses')}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-2 ${
@@ -491,6 +563,18 @@ export default function LicenseServerDashboard() {
                 <span className="px-1.5 py-0.2 rounded-full bg-zinc-900 text-zinc-400 text-[10px] font-mono">
                   {logs.length}
                 </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('branding')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-2 ${
+                  activeTab === 'branding'
+                    ? 'bg-zinc-800 text-white shadow-sm font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <Palette className="h-3.5 w-3.5" />
+                <span>White-Label Branding</span>
               </button>
 
               <button
@@ -560,7 +644,7 @@ export default function LicenseServerDashboard() {
                     <p className="text-xs text-zinc-500">
                       {search || statusFilter !== 'all' || tierFilter !== 'all'
                         ? 'No licenses match your current search and filter criteria.'
-                        : 'Issue your first cryptographic Ed25519 license key to grant access to a buyer or client.'}
+                        : `Issue your first cryptographic license key to grant access to a buyer or client.`}
                     </p>
                   </div>
                   <button
@@ -568,7 +652,8 @@ export default function LicenseServerDashboard() {
                       setCreatedLicense(null);
                       setShowCreateLicense(true);
                     }}
-                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs transition-all cursor-pointer inline-flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl text-zinc-950 font-semibold text-xs transition-all cursor-pointer inline-flex items-center gap-2"
+                    style={{ backgroundColor: branding.brandColor }}
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span>Issue First License</span>
@@ -900,7 +985,249 @@ export default function LicenseServerDashboard() {
             </div>
           )}
 
-          {/* TAB 4: INTEGRATION GUIDE */}
+          {/* TAB 4: WHITE-LABEL BRANDING SETTINGS */}
+          {activeTab === 'branding' && (
+            <div className="space-y-6">
+              {/* Brand Preview Card */}
+              <div className="p-6 rounded-2xl border border-zinc-800/80 bg-zinc-900/30 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-emerald-400" />
+                    <h3 className="text-sm font-semibold text-white">Live White-Label Preview</h3>
+                  </div>
+                  <span className="text-[11px] text-zinc-500 font-mono">Real-time Header & Nav Preview</span>
+                </div>
+
+                {/* Simulated Header Preview */}
+                <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800/90 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {branding.logoUrl ? (
+                      <img
+                        src={branding.logoUrl}
+                        alt="Logo"
+                        className="h-8 max-w-[120px] object-contain rounded"
+                      />
+                    ) : (
+                      <div
+                        className="h-8 w-8 rounded-lg flex items-center justify-center shadow-inner"
+                        style={{ backgroundColor: `${branding.brandColor}20`, border: `1px solid ${branding.brandColor}40` }}
+                      >
+                        <ShieldCheck className="h-4 w-4" style={{ color: branding.brandColor }} />
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-white font-mono">{branding.companyName || 'Your Brand'}</span>
+                      <span className="text-zinc-600">/</span>
+                      <span className="text-xs text-zinc-400 font-medium">{branding.serverName || 'License Authority'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="px-3 py-1.5 rounded-lg text-zinc-950 font-bold text-xs shadow-sm"
+                      style={{ backgroundColor: branding.brandColor }}
+                    >
+                      + Issue License Key
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Branding Configuration Form */}
+              <form onSubmit={handleSaveBranding} className="p-6 rounded-2xl border border-zinc-800/80 bg-zinc-900/30 space-y-6">
+                <div className="border-b border-zinc-800/60 pb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                      <Palette className="h-4 w-4 text-emerald-400" />
+                      <span>White-Label & Name Settings</span>
+                    </h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Rebrand the entire License Authority under your own agency, company, or white-label reseller name.
+                    </p>
+                  </div>
+
+                  {brandingSuccess && (
+                    <div className="px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-1.5 font-medium">
+                      <Check className="h-3.5 w-3.5" />
+                      <span>Settings Saved!</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Company / Brand Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-zinc-300">Company / Brand Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Acme Cloud or AgencyGuard"
+                      value={branding.companyName}
+                      onChange={(e) => setBranding({ ...branding, companyName: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50"
+                    />
+                    <p className="text-[11px] text-zinc-500">Replaces all occurrences of "ScanFix".</p>
+                  </div>
+
+                  {/* Server / Authority Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-zinc-300">Server / Authority Title</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. License Control Plane"
+                      value={branding.serverName}
+                      onChange={(e) => setBranding({ ...branding, serverName: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50"
+                    />
+                    <p className="text-[11px] text-zinc-500">Subtitle displayed in the top navbar and page title.</p>
+                  </div>
+
+                  {/* Key Prefix */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-zinc-300">License Key Prefix</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={8}
+                      placeholder="e.g. ACME or AG"
+                      value={branding.keyPrefix}
+                      onChange={(e) =>
+                        setBranding({ ...branding, keyPrefix: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 font-mono placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50"
+                    />
+                    <p className="text-[11px] text-zinc-500">
+                      Generated keys will follow format: <code className="font-mono text-zinc-300">{branding.keyPrefix || 'SF'}-XXXX-XXXX-XXXX-XXXX</code>
+                    </p>
+                  </div>
+
+                  {/* Brand Accent Color */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-zinc-300">Brand Accent Color</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={branding.brandColor}
+                        onChange={(e) => setBranding({ ...branding, brandColor: e.target.value })}
+                        className="h-9 w-12 rounded-xl bg-zinc-950 border border-zinc-800 cursor-pointer p-1"
+                      />
+                      <input
+                        type="text"
+                        value={branding.brandColor}
+                        onChange={(e) => setBranding({ ...branding, brandColor: e.target.value })}
+                        placeholder="#10b981"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 font-mono focus:outline-none focus:border-emerald-500/50"
+                      />
+                    </div>
+                    {/* Color swatches */}
+                    <div className="flex items-center gap-2 pt-1">
+                      {[
+                        { label: 'Emerald', hex: '#10b981' },
+                        { label: 'Indigo', hex: '#6366f1' },
+                        { label: 'Blue', hex: '#3b82f6' },
+                        { label: 'Purple', hex: '#a855f7' },
+                        { label: 'Amber', hex: '#f59e0b' },
+                        { label: 'Rose', hex: '#f43f5e' },
+                      ].map((swatch) => (
+                        <button
+                          key={swatch.hex}
+                          type="button"
+                          onClick={() => setBranding({ ...branding, brandColor: swatch.hex })}
+                          className="h-5 w-5 rounded-full border border-zinc-700 hover:scale-110 transition-transform cursor-pointer"
+                          style={{ backgroundColor: swatch.hex }}
+                          title={swatch.label}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Logo URL */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-zinc-300">Logo Image URL (Optional)</label>
+                    <input
+                      type="url"
+                      placeholder="https://yourdomain.com/logo.svg"
+                      value={branding.logoUrl || ''}
+                      onChange={(e) => setBranding({ ...branding, logoUrl: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 font-mono placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50"
+                    />
+                    <p className="text-[11px] text-zinc-500">Replaces the shield icon with your brand logo image.</p>
+                  </div>
+
+                  {/* Support Email */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-zinc-300">Support Email</label>
+                    <input
+                      type="email"
+                      placeholder="support@youragency.com"
+                      value={branding.supportEmail}
+                      onChange={(e) => setBranding({ ...branding, supportEmail: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 font-mono placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50"
+                    />
+                    <p className="text-[11px] text-zinc-500">Displayed in buyer client error messages.</p>
+                  </div>
+
+                  {/* Support URL */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-zinc-300">Support / Portal URL (Optional)</label>
+                    <input
+                      type="url"
+                      placeholder="https://youragency.com/support"
+                      value={branding.supportUrl || ''}
+                      onChange={(e) => setBranding({ ...branding, supportUrl: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 font-mono placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50"
+                    />
+                  </div>
+
+                  {/* Custom Footer Text */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-zinc-300">Custom Footer Copyright</label>
+                    <input
+                      type="text"
+                      placeholder="© 2026 YourCompany. All rights reserved."
+                      value={branding.footerText || ''}
+                      onChange={(e) => setBranding({ ...branding, footerText: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50"
+                    />
+                  </div>
+                </div>
+
+                {/* Hide ScanFix Toggle */}
+                <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-semibold text-zinc-200">Completely Remove ScanFix Attribution</div>
+                    <div className="text-[11px] text-zinc-500">
+                      Strips all default ScanFix labels, meta titles, and references from the UI and emails.
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={branding.hideScanFixBranding}
+                      onChange={(e) => setBranding({ ...branding, hideScanFixBranding: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </label>
+                </div>
+
+                {/* Submit Button */}
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={isSavingBranding}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs transition-all shadow-lg shadow-emerald-500/20 cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>{isSavingBranding ? 'Saving Settings...' : 'Save White-Label Settings'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* TAB 5: INTEGRATION GUIDE */}
           {activeTab === 'docs' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -911,12 +1238,12 @@ export default function LicenseServerDashboard() {
                     <h3 className="text-sm font-semibold text-white">1. Buyer SaaS Activation</h3>
                   </div>
                   <p className="text-xs text-zinc-400 leading-relaxed">
-                    When you sell the ScanFix source code, buyers deploy their own instance. They activate their license via the web setup wizard at <code className="text-emerald-400 font-mono">/setup</code> or by setting their environment variable.
+                    When you sell the SaaS source code, buyers deploy their own instance. They activate their license via the web setup wizard at <code className="text-emerald-400 font-mono">/setup</code> or by setting their environment variable.
                   </p>
                   <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800/90 font-mono text-xs text-zinc-300 space-y-1">
                     <div className="text-zinc-500"># In buyer's .env.local:</div>
                     <div>LICENSE_SERVER_URL=https://scanfix-license-server.vercel.app</div>
-                    <div>LICENSE_KEY=SF-XXXX-XXXX-XXXX-XXXX</div>
+                    <div>LICENSE_KEY={branding.keyPrefix || 'SF'}-XXXX-XXXX-XXXX-XXXX</div>
                   </div>
                 </div>
 
@@ -958,6 +1285,10 @@ export default function LicenseServerDashboard() {
                   <div className="py-2.5 flex items-center justify-between">
                     <span className="text-zinc-300">POST /api/v1/admin/licenses</span>
                     <span className="text-zinc-500">Admin/Reseller license creation (Protected)</span>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between">
+                    <span className="text-zinc-300">PATCH /api/v1/admin/branding</span>
+                    <span className="text-zinc-500">White-label branding & name configuration (Protected)</span>
                   </div>
                 </div>
               </div>

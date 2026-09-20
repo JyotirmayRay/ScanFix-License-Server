@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
       expiresAt = expDate.toISOString();
     }
 
-    const key = generateLicenseKey();
+    const prefix = db.getBranding().keyPrefix || 'SF';
+    const key = generateLicenseKey(prefix);
     const license = db.createLicense({
       key,
       customerName: data.customerName,

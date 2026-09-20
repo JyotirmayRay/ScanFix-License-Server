@@ -51,10 +51,35 @@ export interface AuditLog {
   timestamp: string;
 }
 
+export interface BrandingConfig {
+  companyName: string;
+  serverName: string;
+  logoUrl?: string;
+  brandColor: string;
+  keyPrefix: string;
+  supportEmail: string;
+  supportUrl?: string;
+  footerText?: string;
+  hideScanFixBranding: boolean;
+}
+
+export const DEFAULT_BRANDING: BrandingConfig = {
+  companyName: process.env.BRAND_COMPANY_NAME || 'ScanFix',
+  serverName: process.env.BRAND_SERVER_NAME || 'License Authority',
+  logoUrl: process.env.BRAND_LOGO_URL || '',
+  brandColor: process.env.BRAND_COLOR || '#10b981',
+  keyPrefix: process.env.LICENSE_KEY_PREFIX || 'SF',
+  supportEmail: process.env.BRAND_SUPPORT_EMAIL || 'support@scanfix.dev',
+  supportUrl: process.env.BRAND_SUPPORT_URL || '',
+  footerText: process.env.BRAND_FOOTER_TEXT || 'Protected by Cryptographic Token Authority',
+  hideScanFixBranding: process.env.HIDE_SCANFIX_BRANDING === 'true',
+};
+
 interface DatabaseSchema {
   licenses: License[];
   resellers: Reseller[];
   auditLogs: AuditLog[];
+  branding: BrandingConfig;
 }
 
 import os from 'os';
@@ -74,6 +99,7 @@ class Database {
     licenses: [],
     resellers: [],
     auditLogs: [],
+    branding: { ...DEFAULT_BRANDING },
   };
 
   constructor() {
@@ -90,6 +116,9 @@ class Database {
       if (fs.existsSync(DB_PATH)) {
         const raw = fs.readFileSync(DB_PATH, 'utf8');
         this.data = JSON.parse(raw);
+        if (!this.data.branding) {
+          this.data.branding = { ...DEFAULT_BRANDING };
+        }
         globalForDb.__LICENSE_DB_DATA__ = this.data;
         return;
       }
@@ -101,6 +130,7 @@ class Database {
       licenses: [],
       resellers: [],
       auditLogs: [],
+      branding: { ...DEFAULT_BRANDING },
     };
     globalForDb.__LICENSE_DB_DATA__ = this.data;
     this.save();
@@ -233,6 +263,20 @@ class Database {
 
   getRecentLogs(limit: number = 50): AuditLog[] {
     return this.data.auditLogs.slice(0, limit);
+  }
+
+  // --- White-Label Branding ---
+  getBranding(): BrandingConfig {
+    return this.data.branding || { ...DEFAULT_BRANDING };
+  }
+
+  updateBranding(updates: Partial<BrandingConfig>): BrandingConfig {
+    this.data.branding = {
+      ...(this.data.branding || DEFAULT_BRANDING),
+      ...updates,
+    };
+    this.save();
+    return this.data.branding;
   }
 }
 
