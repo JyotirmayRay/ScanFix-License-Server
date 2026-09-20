@@ -1280,7 +1280,7 @@ export default function LicenseServerDashboard() {
                   </div>
                   <div className="py-2.5 flex items-center justify-between">
                     <span className="text-zinc-300">GET /api/v1/license/public-key</span>
-                    <span className="text-zinc-500">Returns Ed25519 public key for local verification</span>
+                    <span className="text-zinc-500">Returns cryptographic public key for local verification</span>
                   </div>
                   <div className="py-2.5 flex items-center justify-between">
                     <span className="text-zinc-300">POST /api/v1/admin/licenses</span>
@@ -1468,7 +1468,7 @@ export default function LicenseServerDashboard() {
                   disabled={isSubmitting}
                   className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs transition-all shadow-lg shadow-emerald-500/20 cursor-pointer disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Signing with Ed25519...' : 'Generate & Issue License Key'}
+                  {isSubmitting ? 'Generating...' : 'Generate & Issue License Key'}
                 </button>
               </form>
             )}
@@ -1549,7 +1549,7 @@ export default function LicenseServerDashboard() {
             <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
               <div className="flex items-center gap-2">
                 <Key className="h-4 w-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-white">Ed25519 Public Key</h3>
+                <h3 className="text-sm font-semibold text-white">Cryptographic Public Key</h3>
               </div>
               <button
                 onClick={() => setShowPublicKeyModal(false)}

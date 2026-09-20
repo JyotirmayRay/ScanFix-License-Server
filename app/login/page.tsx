@@ -1,8 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shield, Lock, Mail, ArrowRight, AlertCircle, KeyRound, Eye, EyeOff } from 'lucide-react';
+
+interface BrandingInfo {
+  companyName: string;
+  serverName: string;
+  logoUrl?: string;
+  brandColor: string;
+  footerText?: string;
+}
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -11,6 +19,18 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [branding, setBranding] = useState<BrandingInfo | null>(null);
+
+  useEffect(() => {
+    fetch('/api/v1/admin/branding')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.branding) {
+          setBranding(data.branding);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +60,10 @@ export default function AdminLoginPage() {
     }
   };
 
+  const companyName = branding?.companyName || 'ScanFix';
+  const serverName = branding?.serverName || 'License Authority';
+  const footerText = branding?.footerText || 'Protected by Cryptographic Token Authority';
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#09090b] relative overflow-hidden">
       {/* Ambient background glows */}
@@ -50,10 +74,14 @@ export default function AdminLoginPage() {
         {/* Brand Header */}
         <div className="text-center mb-8 space-y-2">
           <div className="inline-flex p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800/80 shadow-2xl shadow-emerald-500/10 mb-3">
-            <Shield className="h-8 w-8 text-emerald-400" />
+            {branding?.logoUrl ? (
+              <img src={branding.logoUrl} alt={companyName} className="h-8 w-8 object-contain rounded-lg" />
+            ) : (
+              <Shield className="h-8 w-8 text-emerald-400" />
+            )}
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-            <span>ScanFix License Authority</span>
+            <span>{companyName} {serverName}</span>
           </h1>
           <p className="text-xs text-zinc-400 max-w-xs mx-auto">
             Restricted administrative control plane for cryptographic license generation, domain locks, and reseller quotas.
@@ -91,7 +119,7 @@ export default function AdminLoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@scanfix.dev"
+                placeholder="admin@yourdomain.com"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all font-mono"
               />
             </div>
@@ -144,7 +172,7 @@ export default function AdminLoginPage() {
           {/* Footer Security Badge */}
           <div className="pt-2 border-t border-zinc-800/40 text-center">
             <p className="text-[11px] text-zinc-500 font-mono">
-              Protected by Ed25519 & HMAC-SHA256 Token Authority
+              {footerText}
             </p>
           </div>
         </div>
