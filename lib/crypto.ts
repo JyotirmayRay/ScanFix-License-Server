@@ -3,16 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-// Production default master Ed25519 keypair for zero-config serverless deployments.
-// Can be overridden at runtime via LICENSE_SERVER_PRIVATE_KEY and LICENSE_SERVER_PUBLIC_KEY env vars.
-const DEFAULT_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEANqpjJVJ/Fxvc+D0RyUis8QOJ7vtugereWvqSwKWi//k=
------END PUBLIC KEY-----`;
-
-const DEFAULT_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEIGKpqS7YJN7OTwiswWU8eb+OzgnzAAd1QY5D9LAuJbPB
------END PRIVATE KEY-----`;
-
+// Ed25519 keypair can be configured via LICENSE_SERVER_PRIVATE_KEY and LICENSE_SERVER_PUBLIC_KEY env vars,
+// loaded from disk keys, or generated dynamically in memory.
 const isVercel = !!process.env.VERCEL;
 const KEYS_DIR = isVercel
   ? path.join(os.tmpdir(), 'scanfix-license-server', 'keys')
@@ -59,23 +51,28 @@ export function ensureKeypair(): { publicKey: string; privateKey: string } {
     // Ignore read errors
   }
 
-  // 4. Try to write default keys to disk for persistence if filesystem allows
+  // 4. Generate dynamic secure Ed25519 keypair if neither env nor disk files are available
+  const generated = crypto.generateKeyPairSync('ed25519', {
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  });
+
   try {
     if (!fs.existsSync(KEYS_DIR)) {
       fs.mkdirSync(KEYS_DIR, { recursive: true });
     }
-    fs.writeFileSync(PRIVATE_KEY_PATH, DEFAULT_PRIVATE_KEY, 'utf8');
-    fs.writeFileSync(PUBLIC_KEY_PATH, DEFAULT_PUBLIC_KEY, 'utf8');
+    fs.writeFileSync(PRIVATE_KEY_PATH, generated.privateKey, 'utf8');
+    fs.writeFileSync(PUBLIC_KEY_PATH, generated.publicKey, 'utf8');
   } catch (err) {
-    // Read-only filesystem (e.g. Vercel) - safely ignore and use memory
+    // Read-only filesystem - safely use generated in memory
   }
 
-  const pair = { publicKey: DEFAULT_PUBLIC_KEY, privateKey: DEFAULT_PRIVATE_KEY };
+  const pair = { publicKey: generated.publicKey, privateKey: generated.privateKey };
   globalForKeys.__ED25519_KEYPAIR__ = pair;
   return pair;
 }
 
-const AUTH_SECRET = process.env.ADMIN_API_KEY || 'sf_admin_sec_2026_secret';
+const AUTH_SECRET = process.env.ADMIN_API_KEY || process.env.AUTH_SECRET || 'sf_admin_sec_2026_secret';
 const BASE32_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 /**

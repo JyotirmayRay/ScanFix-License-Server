@@ -3,10 +3,32 @@ import { createClient } from '@supabase/supabase-js';
 import { verifyCryptographicLicenseKey } from './crypto';
 
 export type LicenseTier = 'solo' | 'pro' | 'agency' | 'enterprise';
+export type LicenseType =
+  | 'SINGLE_SITE'
+  | 'MULTI_SITE'
+  | 'AGENCY'
+  | 'RESELLER'
+  | 'LIFETIME'
+  | 'SUBSCRIPTION'
+  | 'DEVELOPER'
+  | 'INTERNAL';
 export type LicenseStatus = 'active' | 'suspended' | 'revoked' | 'expired';
+
+export interface Product {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  currentVersion: string;
+  allowedLicenseTypes: LicenseType[];
+  features: string[];
+  isActive: boolean;
+  createdAt: string;
+}
 
 export interface ActivatedDomain {
   domain: string;
+  installationId?: string;
   activatedAt: string;
   lastCheckinAt: string;
   ip: string;
@@ -15,6 +37,8 @@ export interface ActivatedDomain {
 export interface License {
   id: string;
   key: string;
+  productId?: string;
+  licenseType?: LicenseType;
   customerName: string;
   customerEmail: string;
   tier: LicenseTier;
@@ -22,6 +46,8 @@ export interface License {
   allowedDomains: string[];
   maxDomains: number;
   activatedDomains: ActivatedDomain[];
+  versionConstraint?: string;
+  features?: string[];
   expiresAt: string | null;
   resellerId: string | null;
   notes?: string;
@@ -122,10 +148,59 @@ function rowToReseller(row: any): Reseller {
 
 const globalForDb = globalThis as unknown as {
   __SF_LICENSES__?: License[];
+  __SF_PRODUCTS__?: Product[];
   __SF_RESELLERS__?: Reseller[];
   __SF_LOGS__?: AuditLog[];
   __SF_BRANDING__?: BrandingConfig;
 };
+
+// Initialize seed products in memory
+const SEED_PRODUCTS: Product[] = [
+  {
+    id: 'scanfix-agency-edition',
+    name: 'ScanFix Agency & White-Label Edition',
+    slug: 'scanfix-agency',
+    description: 'Full white-label SaaS deployment for dev shops, agencies, and consultants.',
+    currentVersion: '2.4.0',
+    allowedLicenseTypes: ['AGENCY', 'MULTI_SITE', 'LIFETIME', 'SUBSCRIPTION'],
+    features: ['white_label', 'custom_domain', 'client_portal', 'multi_site', 'reports', 'proposals'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'scanfix-self-hosted',
+    name: 'ScanFix Self-Hosted Enterprise',
+    slug: 'scanfix-self-hosted',
+    description: 'On-premise enterprise deployment with zero external telemetry dependency.',
+    currentVersion: '2.4.0',
+    allowedLicenseTypes: ['SINGLE_SITE', 'MULTI_SITE', 'INTERNAL'],
+    features: ['on_prem', 'air_gapped', 'audit_logs', 'sso_saml', 'unlimited_scans'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'scanfix-reseller-edition',
+    name: 'ScanFix Reseller & OEM License',
+    slug: 'scanfix-reseller',
+    description: 'Master distribution license enabling sub-licensing and customer key issuance.',
+    currentVersion: '2.4.0',
+    allowedLicenseTypes: ['RESELLER', 'LIFETIME'],
+    features: ['reseller_sub_keys', 'white_label', 'custom_branding', 'unlimited_activations'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'scanfix-saas-source',
+    name: 'ScanFix Complete SaaS Source Code',
+    slug: 'scanfix-source',
+    description: 'Full commercial source code package for custom SaaS engineering.',
+    currentVersion: '2.4.0',
+    allowedLicenseTypes: ['DEVELOPER', 'INTERNAL', 'LIFETIME'],
+    features: ['full_source', 'unrestricted_modifications', 'royalty_free'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  },
+];
 
 // Initialize seed licenses in memory
 const SEED_LICENSES: License[] = [
@@ -173,6 +248,13 @@ class Database {
     return globalForDb.__SF_LICENSES__;
   }
 
+  private get memoryProducts(): Product[] {
+    if (!globalForDb.__SF_PRODUCTS__) {
+      globalForDb.__SF_PRODUCTS__ = [...SEED_PRODUCTS];
+    }
+    return globalForDb.__SF_PRODUCTS__;
+  }
+
   private get memoryResellers(): Reseller[] {
     if (!globalForDb.__SF_RESELLERS__) {
       globalForDb.__SF_RESELLERS__ = [];
@@ -185,6 +267,26 @@ class Database {
       globalForDb.__SF_LOGS__ = [];
     }
     return globalForDb.__SF_LOGS__;
+  }
+
+  // --- Products Catalog ---
+
+  async getProducts(): Promise<Product[]> {
+    return [...this.memoryProducts];
+  }
+
+  async getProductById(id: string): Promise<Product | null> {
+    const found = this.memoryProducts.find((p) => p.id === id || p.slug === id);
+    return found || null;
+  }
+
+  async createProduct(product: Omit<Product, 'createdAt'>): Promise<Product> {
+    const newProduct: Product = {
+      ...product,
+      createdAt: new Date().toISOString(),
+    };
+    this.memoryProducts.push(newProduct);
+    return newProduct;
   }
 
   // --- Licenses ---
